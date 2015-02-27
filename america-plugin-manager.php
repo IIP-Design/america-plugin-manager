@@ -8,78 +8,169 @@
  Version:         0.0.1
  Author:          Office of Design, Bureau of International Information Programs
  License:         GPL-2.0+
+ Text Domain:     america
+ Domain Path:     /languages
  
  ****************************************************************************************** */
 
-/**
- * Include the TGM_Plugin_Activation class.
- */
-require_once dirname( __FILE__ ) . '/class-tgm-plugin-activation.php';
-
-add_action( 'tgmpa_register', 'america_register_plugins' );
-
-function america_register_plugins() {
-    /**
-     * Array of plugin arrays. Required keys are name and slug.
-     * If the source is NOT from the .org repo, then source is also required.
-     */
-    $plugins = array (
-
-        // Private IIP Design GitHub repo
-        array (
-            'name'               => 'America Developer', // plugin name.
-            'slug'               => 'america-developer-master', // plugin slug (typically the folder name - for github, add '-master' to slug).
-            'source'             => 'https://github.com/terriregan/america-developer/archive/master.zip', // plugin source.
-            'required'           => false, // If false, the plugin is only 'recommended' instead of required.
-            'external_url'       => 'https://github.com/terriregan/america-developer', // If set, overrides default API URL and points to an external URL.
-        ),
-
-        // From the WordPress Plugin Repository.
-        array (
-            'name'      => 'Meta Box',
-            'slug'      => 'meta-box',
-            'required'  => false,
-        ),
-
-    );
-
-    /**
-     * Array of configuration settings. Amend each line as needed.
-     * If you want the default strings to be available under your own theme domain,
-     * leave the strings uncommented.
-     * Some of the strings are added into a sprintf, so see the comments at the
-     * end of each line for what each argument will be.
-     */
-    $config = array(
-        'default_path' => '',                      // Default absolute path to pre-packaged plugins.
-        'menu'         => 'tgmpa-install-plugins', // Menu slug.
-        'has_notices'  => true,                    // Show admin notices or not.
-        'dismissable'  => true,                    // If false, a user cannot dismiss the nag message.
-        'dismiss_msg'  => '',                      // If 'dismissable' is false, this message will be output at top of nag.
-        'is_automatic' => false,                   // Automatically activate plugins after installation or not.
-        'message'      => '',                      // Message to output right before the plugins table.
-        'strings'      => array(
-            'page_title'                      => __( 'Install Plugins', 'tgmpa' ),
-            'menu_title'                      => __( 'Install Plugins', 'tgmpa' ),
-            'installing'                      => __( 'Installing Plugin: %s', 'tgmpa' ), // %s = plugin name.
-            'oops'                            => __( 'Something went wrong with the plugin API.', 'tgmpa' ),
-            'notice_can_install_required'     => _n_noop( 'This theme requires the following plugin: %1$s.', 'This theme requires the following plugins: %1$s.' ), // %1$s = plugin name(s).
-            'notice_can_install_recommended'  => _n_noop( 'This theme recommends the following plugin: %1$s.', 'This theme recommends the following plugins: %1$s.' ), // %1$s = plugin name(s).
-            'notice_cannot_install'           => _n_noop( 'Sorry, but you do not have the correct permissions to install the %s plugin. Contact the administrator of this site for help on getting the plugin installed.', 'Sorry, but you do not have the correct permissions to install the %s plugins. Contact the administrator of this site for help on getting the plugins installed.' ), // %1$s = plugin name(s).
-            'notice_can_activate_required'    => _n_noop( 'The following required plugin is currently inactive: %1$s.', 'The following required plugins are currently inactive: %1$s.' ), // %1$s = plugin name(s).
-            'notice_can_activate_recommended' => _n_noop( 'The following recommended plugin is currently inactive: %1$s.', 'The following recommended plugins are currently inactive: %1$s.' ), // %1$s = plugin name(s).
-            'notice_cannot_activate'          => _n_noop( 'Sorry, but you do not have the correct permissions to activate the %s plugin. Contact the administrator of this site for help on getting the plugin activated.', 'Sorry, but you do not have the correct permissions to activate the %s plugins. Contact the administrator of this site for help on getting the plugins activated.' ), // %1$s = plugin name(s).
-            'notice_ask_to_update'            => _n_noop( 'The following plugin needs to be updated to its latest version to ensure maximum compatibility with this theme: %1$s.', 'The following plugins need to be updated to their latest version to ensure maximum compatibility with this theme: %1$s.' ), // %1$s = plugin name(s).
-            'notice_cannot_update'            => _n_noop( 'Sorry, but you do not have the correct permissions to update the %s plugin. Contact the administrator of this site for help on getting the plugin updated.', 'Sorry, but you do not have the correct permissions to update the %s plugins. Contact the administrator of this site for help on getting the plugins updated.' ), // %1$s = plugin name(s).
-            'install_link'                    => _n_noop( 'Begin installing plugin', 'Begin installing plugins' ),
-            'activate_link'                   => _n_noop( 'Begin activating plugin', 'Begin activating plugins' ),
-            'return'                          => __( 'Return to Required Plugins Installer', 'tgmpa' ),
-            'plugin_activated'                => __( 'Plugin activated successfully.', 'tgmpa' ),
-            'complete'                        => __( 'All plugins installed and activated successfully. %s', 'tgmpa' ), // %s = dashboard link.
-            'nag_type'                        => 'updated' // Determines admin notice type - can only be 'updated', 'update-nag' or 'error'.
-        )
-    );
-
-    tgmpa( $plugins, $config );
-
+// If this file is called directly, abort.
+if ( ! defined( 'WPINC' ) ) {
+    die;
 }
+
+ class America_Plugin_Manager {
+
+    const VERSION   = '0.0.1';
+        
+    /** single instance of class */
+    private static $instance    = null;
+    private $america_plugins    = array();
+
+    /**
+     * Creates or returns an instance of this class.
+     *
+     * @return  single instance of class
+     */
+    public static function apm_get_instance() {
+ 
+        if ( null == self::$instance ) {
+            self::$instance = new self;
+        }
+ 
+        return self::$instance;
+    } 
+
+    public function apm_bootstrap() {
+        register_activation_hook( __FILE__,  array( $this, 'apm_activate' ) );
+
+        add_action( 'init',                         array( $this, 'apm_init' ) );
+        add_action( 'admin_init',                   array( $this, 'apm_admin_init' ) );
+        add_action( 'admin_menu',                   array( $this, 'apm_register_settings_page' ) );
+        add_action( 'wp_ajax_apm_activate_plugin',  array( $this, 'ajax_handler' ) );
+    }
+
+    // Internationalization
+    function apm_load_plugin_textdomain () {
+        load_plugin_textdomain ( 'america', FALSE, dirname( plugin_basename( __FILE__ ) ) . '/languages/' );
+    }
+
+    function apm_activate() {
+    }
+
+    public function apm_register_settings_page() {
+        // create new top-level menu
+        add_menu_page( 'America', 'America', 'manage_options', __FILE__, array( $this, 'apm_settings_page' ), '', 6 );
+    }
+
+
+    public function apm_settings_page() {
+        //Set Your Nonce
+        $ajax_nonce = wp_create_nonce( "my-special-string" );
+        ?>
+
+        <script type="text/javascript">
+            jQuery(document).ready(function($) {
+                $("a[data-action]").on("click", function ( event ) {
+                   event.preventDefault();
+
+                   var plugin = $(this).attr("data-action");
+
+                $.post (
+                    ajaxurl, 
+                    {
+                        'action': 'apm_activate_plugin',
+                        'data':   'plugin'
+                    }, 
+                    function( response ){
+                        console.log(response);
+                    }
+                );
+            });
+            });
+        </script>
+
+        <div class="wrap">
+            <h2>Activate America Plugins</h2>
+            <div><ul>
+                <?php
+                    foreach ( $this->america_plugins as $plugin ) {
+                        $plugin = $plugin['name'];
+                        echo "<a href='#' data-action='$plugin'>$plugin</a><br>";
+                    }
+                ?>
+            </ul></div>
+            
+           
+        </div><!-- wrap -->
+        <?php
+    }
+
+    public function apm_init() {
+        $this->apm_load_plugin_textdomain();
+    }
+
+    public function apm_admin_init() {
+        $this->america_plugins = array (
+            'america-developer' => array(
+                'name'          => esc_html__( 'America Developer', 'america' ),
+                'active'        => class_exists( 'America_Publication_Post_Type' ),
+            ),
+            'america_publication_post_type' => array(
+                'name'          => esc_html__( 'America Publication Post Type', 'america' ),
+                'active'        => class_exists( 'America_Publication_Post_Type' ),
+            ),
+        );
+    }
+
+    public function ajax_handler( $action ) {
+        $response = json_encode( $_POST );
+        $path =  plugin_dir_path( __FILE__ )  . 'america_publication_post_type/america_publication_post_type.php';
+        activate_plugin($path);
+        
+       
+        // if ( empty( $_POST['path'] ) )
+        //     die( __( 'ERROR: No slug was passed to the AJAX callback.', 'a8c-developer' ) );
+
+        // check_ajax_referer( 'a8c_developer_activate_plugin_' . $_POST['path'] );
+
+        // if ( ! current_user_can( 'activate_plugins' ) )
+        //     die( __( 'ERROR: You lack permissions to activate plugins.', 'a8c-developer' ) );
+
+        // $activate_result = activate_plugin( $_POST['path'] );
+
+        // if ( is_wp_error( $activate_result ) )
+        //     die( sprintf( __( 'ERROR: Failed to activate plugin: %s', 'a8c-developer' ), $activate_result->get_error_message() ) );
+
+        // exit( '1' );
+    }
+
+    public function apm_toggle_plugin () {
+
+        // Full path to WordPress from the root
+        $wordpress_path = '/full/path/to/wordpress/';
+
+        // Absolute path to plugins dir
+        $plugin_path = $wordpress_path.'wp-content/plugins/';
+
+        // Absolute path to your specific plugin
+        $my_plugin = $plugin_path.'my_plugin/my_plugin.php';
+
+        // Check to see if plugin is already active
+        if( is_plugin_active($my_plugin) ) {
+
+            // Deactivate plugin
+            // Note that deactivate_plugins() will also take an
+            // array of plugin paths as a parameter instead of
+            // just a single string.
+            deactivate_plugins( $my_plugin );
+        } else {
+
+            // Activate plugin
+            activate_plugin( $my_plugin );
+        }
+    }
+    
+ }
+
+ $apm_manger = America_Plugin_Manager::apm_get_instance();
+ $apm_manger->apm_bootstrap();
